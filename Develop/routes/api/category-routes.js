@@ -24,7 +24,7 @@ router.get("/", async (req, res) => {
 // be sure to include its associated Products
 router.get("/:id", async (req, res) => {
   try {
-    const category = await Category.findByPk(req.params.id, {
+    const category = await Category.findOne(req.params.id, {
       include: [
         {
           model: Product,
@@ -67,16 +67,38 @@ router.put("/:id", async (req, res) => {
 });
 
 // delete a category by its `id` value
-router.delete("/:id", (req, res) => {
-  Category.destroy({
-    where: {
-      id: req.params.id,
-    },
-  })
-    .then((deletedCategory) => {
-      res.json(deletedCategory);
-    })
-    .catch((err) => res.json(err));
+router.delete("/:id", async (req, res) => {
+  try {
+    const categoryId = req.params.id;
+
+    // Check if any products reference the category
+    const productsExist = await Product.findOne({
+      where: {
+        category_id: categoryId,
+      },
+    });
+
+    if (productsExist) {
+      // Products referencing the category exist, so delete them first
+      await Product.destroy({
+        where: {
+          category_id: categoryId,
+        },
+      });
+    }
+
+    // Delete the category
+    await Category.destroy({
+      where: {
+        id: categoryId,
+      },
+    });
+
+    res.status(200).send("Category deleted successfully");
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    res.status(500).send("Error deleting category");
+  }
 });
 
 module.exports = router;
